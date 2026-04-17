@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Optimization System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Graph Optimization System</h1>
+            <p class="subtitle">Compare Dijkstra's, A*, and Hybrid Algorithms</p>
+        </header>
+
+        <main>
+            <div class="content-wrapper">
+                <!-- Input Section -->
+                <section class="input-section">
+                    <div class="card">
+                        <h2>Input Configuration</h2>
+                        <form id="optimizationForm">
+                            <div class="form-group">
+                                <label for="startNode">Start Node:</label>
+                                <select id="startNode" name="startNode" required>
+                                    <option value="">Select a start node</option>
+                                    {% for node in nodes %}
+                                        <option value="{{ node }}">{{ node }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="endNode">End Node:</label>
+                                <select id="endNode" name="endNode" required>
+                                    <option value="">Select an end node</option>
+                                    {% for node in nodes %}
+                                        <option value="{{ node }}">{{ node }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">
+                                <span class="btn-icon">▶</span> Find Shortest Path
+                            </button>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Results Section -->
+                <section class="results-section">
+                    <!-- Loading indicator -->
+                    <div id="loadingIndicator" class="loading-hidden">
+                        <div class="spinner"></div>
+                        <p>Processing algorithms...</p>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="resultsContainer" class="results-hidden">
+                        <!-- Comparison Table -->
+                        <div class="card">
+                            <h2>Algorithm Comparison</h2>
+                            <div class="table-wrapper">
+                                <table class="comparison-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Algorithm</th>
+                                            <th>Path</th>
+                                            <th>Cost</th>
+                                            <th>Execution Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="comparisonTableBody">
+                                        <tr>
+                                            <td colspan="4" style="text-align: center; color: #999;">
+                                                Results will appear here
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Graph Visualization -->
+                        <div class="card">
+                            <h2>Graph Visualization</h2>
+                            <div class="graph-container">
+                                <img id="graphImage" src="" alt="Graph visualization" class="graph-image">
+                            </div>
+                        </div>
+
+                        <!-- Algorithm Details -->
+                        <div class="card">
+                            <h2>Algorithm Details</h2>
+                            <div class="details-grid">
+                                <div class="detail-box">
+                                    <h3>🔷 Dijkstra's Algorithm</h3>
+                                    <p>
+                                        Guarantees the shortest path by exploring nodes in order of distance.
+                                        Uses a priority queue to always process the closest unvisited node.
+                                    </p>
+                                    <ul>
+                                        <li>Time Complexity: O((V + E) log V)</li>
+                                        <li>Space Complexity: O(V)</li>
+                                        <li>Best for: General shortest path problems</li>
+                                    </ul>
+                                </div>
+
+                                <div class="detail-box">
+                                    <h3>🔶 A* Algorithm</h3>
+                                    <p>
+                                        Uses heuristic values to guide the search towards the goal.
+                                        More efficient than Dijkstra when good heuristics are available.
+                                    </p>
+                                    <ul>
+                                        <li>Time Complexity: O((V + E) log V) with good heuristic</li>
+                                        <li>Space Complexity: O(V)</li>
+                                        <li>Best for: Pathfinding with known goal position</li>
+                                    </ul>
+                                </div>
+
+                                <div class="detail-box">
+                                    <h3>🔯 Hybrid Algorithm</h3>
+                                    <p>
+                                        Combines A* and Dijkstra by starting with A* heuristic guidance,
+                                        then switching to Dijkstra when reliability decreases.
+                                    </p>
+                                    <ul>
+                                        <li>Time Complexity: O((V + E) log V)</li>
+                                        <li>Space Complexity: O(V)</li>
+                                        <li>Best for: Adaptive pathfinding</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error Message -->
+                    <div id="errorMessage" class="error-hidden">
+                        <div class="error-content">
+                            <p id="errorText"></p>
+                            <button type="button" class="btn btn-secondary" onclick="closeError()">Close</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Graph Optimization System | Built with Flask, NetworkX, and JavaScript</p>
+        </footer>
+    </div>
+
+    <script>
+        // Form submission handler
+        document.getElementById('optimizationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const startNode = document.getElementById('startNode').value;
+            const endNode = document.getElementById('endNode').value;
+
+            // Validation
+            if (!startNode || !endNode) {
+                showError('Please select both start and end nodes');
+                return;
+            }
+
+            if (startNode === endNode) {
+                showError('Start and end nodes must be different');
+                return;
+            }
+
+            // Show loading indicator
+            showLoading();
+
+            try {
+                const response = await fetch('/api/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        start: startNode,
+                        end: endNode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showError(data.error || 'An error occurred');
+                    hideLoading();
+                    return;
+                }
+
+                // Display results
+                displayResults(data);
+                hideLoading();
+            } catch (error) {
+                showError('Failed to process request: ' + error.message);
+                hideLoading();
+            }
+        });
+
+        function displayResults(data) {
+            const tableBody = document.getElementById('comparisonTableBody');
+            tableBody.innerHTML = '';
+
+            const algorithms = [
+                { key: 'dijkstra', order: 1 },
+                { key: 'a_star', order: 2 },
+                { key: 'hybrid', order: 3 }
+            ];
+
+            algorithms.forEach(algo => {
+                const result = data.results[algo.key];
+                const row = `
+                    <tr>
+                        <td class="algorithm-name">${result.name}</td>
+                        <td class="path-cell">${result.path}</td>
+                        <td class="cost-cell">${result.cost}</td>
+                        <td class="time-cell">${result.time}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+
+            // Update graph image
+            const graphImage = document.getElementById('graphImage');
+            graphImage.src = data.graph_image + '?t=' + new Date().getTime();
+
+            // Show results section
+            showResults();
+        }
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').classList.remove('loading-hidden');
+            document.getElementById('resultsContainer').classList.add('results-hidden');
+            document.getElementById('errorMessage').classList.add('error-hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').classList.add('loading-hidden');
+        }
+
+        function showResults() {
+            document.getElementById('resultsContainer').classList.remove('results-hidden');
+            document.getElementById('errorMessage').classList.add('error-hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').classList.remove('error-hidden');
+            document.getElementById('resultsContainer').classList.add('results-hidden');
+        }
+
+        function closeError() {
+            document.getElementById('errorMessage').classList.add('error-hidden');
+        }
+    </script>
+</body>
+</html>
